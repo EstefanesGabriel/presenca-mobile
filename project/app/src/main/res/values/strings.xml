@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">PresencaMobile</string>
+    <string name="qr_scanner_title">Leitor de QR Code</string>
+    <string name="qr_scanner_back">Voltar</string>
+    <string name="qr_scanner_camera_description">Câmera para leitura do QR Code de presença</string>
+    <string name="qr_scanner_prompt">Enquadre o QR Code do professor dentro do quadrado</string>
+</resources>
