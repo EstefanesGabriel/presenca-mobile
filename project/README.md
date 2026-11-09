@@ -21,18 +21,41 @@ Conecte o pgAdmin ao PostgreSQL do seu projeto Supabase. Em um banco novo, abra 
 | 3 | [202610060001_classroom_members.sql](supabase/migrations/202610060001_classroom_members.sql) | Vínculos dos alunos e participantes |
 | 4 | [202610070001_complete_attendance.sql](supabase/migrations/202610070001_complete_attendance.sql) | Aulas, QR, presenças, convites e notificações |
 | 5 | [202610090001_classroom_password_fix.sql](supabase/migrations/202610090001_classroom_password_fix.sql) | Correção da alteração de senha da turma |
+| 6 | [202610120001_delete_classrooms_and_lessons.sql](supabase/migrations/202610120001_delete_classrooms_and_lessons.sql) | Exclusão permanente de turmas e aulas pelo professor responsável |
+| 7 | [202610130001_account_profile.sql](supabase/migrations/202610130001_account_profile.sql) | Edição do nome da própria conta |
+| 8 | [202610130002_leave_and_adjust_attendance.sql](supabase/migrations/202610130002_leave_and_adjust_attendance.sql) | Saída da turma com exclusão do histórico e correção de presença com justificativa |
 
 Aguarde `COMMIT` em cada execução. Em caso de erro, execute `ROLLBACK;` e confira a causa antes de continuar. Não repita etapas já aplicadas. Os scripts não são executados automaticamente pelo Android.
 
-Se o banco já foi preparado pelo antigo script de reconstrução, as etapas acima já estão incluídas nele. Esta limpeza de arquivos locais não modifica o banco remoto.
+Se o banco já foi preparado pelo antigo script de reconstrução, as etapas 1 a 5 já estão incluídas nele.
+
+A etapa 6 é nova e deve ser aplicada também em bancos preparados pelo antigo script de reconstrução. Ela cria as funções de exclusão e não apaga dados durante sua aplicação.
+
+A etapa 7 habilita Salvar nome na tela Minha conta. Não execute novamente o setup de profiles em um banco existente.
+
+A etapa 8 habilita Sair da turma e a correção de presença. Execute o arquivo inteiro uma vez no Query Tool e aguarde COMMIT. A migração preserva os dados existentes: o histórico de um aluno só é apagado quando ele confirma a saída da turma.
 
 ## Funcionalidades
 
-Professor: criar, editar e encerrar turmas; listar e remover participantes; convidar alunos por e-mail da conta; criar, editar e remover aulas; gerar QR temporário com localização e raio; desativar QR; acompanhar presenças e encerrar a chamada; ler notificações de resposta aos convites.
+Professor: criar, editar, encerrar e excluir turmas; listar e remover participantes; convidar alunos por e-mail da conta; criar, editar e excluir aulas; gerar QR temporário com localização e raio; desativar QR; acompanhar presenças e encerrar a chamada; ler notificações de resposta aos convites.
+
+Para excluir uma turma, abra a aba Turma e toque em Excluir turma. Para excluir uma aula, abra a aula e toque em Excluir aula. As duas opções pedem confirmação. Excluir turma apaga também todas as aulas e seus QR, listas de chamada e presenças, além dos vínculos, credenciais e convites da turma. Excluir aula apaga os registros daquela aula e a retira do cálculo de frequência. A exclusão é permanente e está disponível também para turmas encerradas e aulas com presenças. Encerrar turma ou chamada continua preservando o histórico. As contas dos usuários e as notificações já recebidas permanecem.
 
 Aluno: entrar por código/senha ou aceitar convite; recusar convites; escanear QR pela câmera e registrar presença com GPS; consultar presença, falta e frequência por turma; ler e marcar notificações.
 
+Para sair, o aluno abre Presença e histórico e toca em Sair da turma. Após a confirmação do servidor, são removidos o vínculo, as presenças, faltas, ajustes e convites daquele aluno naquela turma. As aulas e os registros dos outros alunos permanecem. Entrar novamente não recupera o histórico anterior. É possível sair também de uma turma encerrada. A remoção pelo professor continua preservando o histórico.
+
+Para corrigir, o professor abre uma aula e usa Marcar presença ou Marcar falta na lista de chamada. Basta preencher uma justificativa de 1 a 250 caracteres. São permitidos ajustes em aulas abertas ou encerradas, inclusive de turmas encerradas. O último motivo, autor e data aparecem para o professor e o aluno; todos os ajustes ficam registrados no banco em `attendance_adjustments`. A frequência considera o estado corrigido das aulas encerradas. O QR não sobrescreve uma falta manual. Excluir a aula/turma ou o aluno sair da turma também apaga os ajustes correspondentes.
+
 Notificações ficam dentro do aplicativo e são atualizadas ao abrir a tela ou tocar em Atualizar. Presenças são oficiais somente depois da confirmação do servidor; é necessária conexão com a internet.
+
+## Minha conta
+
+Aluno e professor acessam Minha conta no topo da área autenticada. A tela mostra nome, e-mail e perfil, permite salvar o nome e alterar a senha de login. O e-mail é exibido apenas para consulta. O nome é mantido em `public.profiles`, que é a fonte usada pelas telas e listas de participantes. O perfil aluno/professor não é alterado pela edição da conta.
+
+A nova senha deve ter pelo menos 8 caracteres e coincidir com sua confirmação. Os campos de senha são limpos ao enviar a alteração e ao sair da tela. Não há recuperação de senha.
+
+Se o servidor pedir autenticação recente para trocar a senha, saia e entre novamente na conta.
 
 ## Organização do código
 

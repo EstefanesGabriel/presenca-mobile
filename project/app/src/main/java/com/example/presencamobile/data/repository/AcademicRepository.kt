@@ -24,13 +24,17 @@ class AcademicRepository {
 
     suspend fun closeClassroom(classroomId: String): Classroom =
         rpc("close_classroom", classParams(classroomId)).decodeSingle<Classroom>()
+    suspend fun deleteClassroom(classroomId: String) { rpc("delete_classroom", classParams(classroomId)) }
+    suspend fun leaveClassroom(classroomId: String) { rpc("leave_classroom", classParams(classroomId)) }
     suspend fun removeParticipant(classroomId: String, studentId: String) {
         rpc("remove_classroom_participant", buildJsonObject { put("p_classroom_id", classroomId); put("p_student_id", studentId) })
     }
     suspend fun lessons(classroomId: String): List<Lesson> = rpc("list_lessons", classParams(classroomId)).decodeList<Lesson>()
     suspend fun saveLesson(id: String, classroomId: String, title: String, startsAt: String): Lesson =
         rpc("save_lesson", buildJsonObject { put("p_id", id); put("p_classroom_id", classroomId); put("p_title", title); put("p_starts_at", startsAt) }).decodeSingle<Lesson>()
-    suspend fun cancelLesson(lessonId: String) { rpc("cancel_lesson", lessonParams(lessonId)) }
+    suspend fun deleteLesson(classroomId: String, lessonId: String) {
+        rpc("delete_lesson", buildJsonObject { put("p_classroom_id", classroomId); put("p_lesson_id", lessonId) })
+    }
     suspend fun generateQr(id: String, lessonId: String, position: GeoPosition, duration: Int, radius: Int): AttendanceQr =
         rpc("generate_attendance_qr", buildJsonObject {
             put("p_id", id); put("p_lesson_id", lessonId)
@@ -39,6 +43,11 @@ class AcademicRepository {
     suspend fun invalidateQr(lessonId: String) { rpc("invalidate_attendance_qr", lessonParams(lessonId)) }
     suspend fun closeLesson(lessonId: String) { rpc("close_lesson", lessonParams(lessonId)) }
     suspend fun attendance(lessonId: String): List<AttendanceRecord> = rpc("list_lesson_attendance", lessonParams(lessonId)).decodeList<AttendanceRecord>()
+    suspend fun adjustAttendance(id: String, lessonId: String, studentId: String, status: AttendanceStatus, reason: String): List<AttendanceRecord> =
+        rpc("adjust_attendance", buildJsonObject {
+            put("p_id", id); put("p_lesson_id", lessonId); put("p_student_id", studentId)
+            put("p_status", status.name); put("p_reason", reason)
+        }).decodeList<AttendanceRecord>()
     suspend fun recordAttendance(classroomId: String, token: String, position: GeoPosition): AttendanceReceipt =
         rpc("record_attendance", buildJsonObject { put("p_classroom_id", classroomId); put("p_token", token); putPosition(position) }).decodeSingle<AttendanceReceipt>()
     suspend fun history(classroomId: String): List<AttendanceHistory> = rpc("student_attendance_history", classParams(classroomId)).decodeList<AttendanceHistory>()

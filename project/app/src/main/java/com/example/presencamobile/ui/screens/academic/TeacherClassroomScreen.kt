@@ -32,7 +32,7 @@ import java.time.Instant
 import java.util.UUID
 
 @Composable
-fun TeacherClassroomRoute(profile: UserProfile, classroom: Classroom, onBack: () -> Unit) {
+fun TeacherClassroomRoute(profile: UserProfile, classroom: Classroom, onDeleted: () -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current.applicationContext
     val vm: TeacherClassroomViewModel = viewModel(key = "teacher-class-${profile.id}-${classroom.id}", factory = viewModelFactory {
         initializer { TeacherClassroomViewModel(profile, classroom, LocationProvider(context)) }
@@ -41,11 +41,11 @@ fun TeacherClassroomRoute(profile: UserProfile, classroom: Classroom, onBack: ()
     val state = vm.state
     val back = { if (!vm.busy) { if (state.selectedLesson != null) vm.backToClassroom() else onBack() } }
     BackHandler { back() }
-    TeacherClassroomScreen(vm, back)
+    TeacherClassroomScreen(vm, back, onDeleted)
 }
 
 @Composable
-fun TeacherClassroomScreen(vm: TeacherClassroomViewModel, onBack: () -> Unit) {
+fun TeacherClassroomScreen(vm: TeacherClassroomViewModel, onBack: () -> Unit, onDeleted: () -> Unit) {
     val state = vm.state
     val classroom = state.classroom
     var tab by rememberSaveable { mutableIntStateOf(0) }
@@ -54,13 +54,19 @@ fun TeacherClassroomScreen(vm: TeacherClassroomViewModel, onBack: () -> Unit) {
     var lessonId by rememberSaveable { mutableStateOf("") }
     var lessonTitle by rememberSaveable { mutableStateOf("") }
     var lessonDate by rememberSaveable { mutableStateOf("") }
+    var adjustmentId by rememberSaveable { mutableStateOf("") }
+    var adjustmentStatus by rememberSaveable { mutableStateOf(AttendanceStatus.PRESENT.name) }
     val lesson = state.selectedLesson
     AcademicPage(lesson?.title ?: classroom.name, "${classroom.subject} • ${classroom.semester}", vm, onBack) {
         if (!classroom.isActive) Text("Turma encerrada — histórico disponível.")
         if (lesson != null) {
             TeacherLessonPanel(vm,
                 onEdit = { lessonId = lesson.id; lessonTitle = lesson.title; lessonDate = AcademicDates.display(lesson.startsAt); dialog = "lesson" },
-                onRemove = { dialog = "removeLesson" }, onClose = { dialog = "closeLesson" })
+                onDelete = { dialog = "deleteLesson" }, onClose = { dialog = "closeLesson" },
+                onAdjust = { student, status ->
+                    participantId = student.studentId; adjustmentStatus = status.name
+                    adjustmentId = UUID.randomUUID().toString(); dialog = "adjustAttendance"
+                })
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf("Aulas", "Alunos", "Turma").forEachIndexed { index, label ->
@@ -99,6 +105,8 @@ fun TeacherClassroomScreen(vm: TeacherClassroomViewModel, onBack: () -> Unit) {
                         Button(onClick = { dialog = "classroom" }, enabled = !vm.busy) { Text("Editar turma") }
                         OutlinedButton(onClick = { dialog = "closeClassroom" }, enabled = !vm.busy) { Text("Encerrar turma") }
                     }
+                    TextButton(onClick = { dialog = "deleteClassroom" }, enabled = !vm.busy,
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Excluir turma") }
                 }
             }
         }
@@ -107,15 +115,21 @@ fun TeacherClassroomScreen(vm: TeacherClassroomViewModel, onBack: () -> Unit) {
         "classroom" -> ClassroomEditDialog(classroom, vm, { dialog = null })
         "lesson" -> LessonEditDialog(lessonId, lessonTitle, lessonDate, vm, { dialog = null })
         "invite" -> InvitationDialog(vm, { dialog = null })
+        "adjustAttendance" -> AttendanceAdjustmentDialog(adjustmentId, participantId,
+            AttendanceStatus.valueOf(adjustmentStatus), vm, { dialog = null })
         "closeClassroom" -> ConfirmAction("Encerrar turma?", "Bloqueia novas entradas e chamadas, encerra aulas abertas e cancela aulas agendadas e convites pendentes. O histórico será preservado.", vm, { dialog = null }) { vm.closeClassroom { dialog = null } }
+        "deleteClassroom" -> ConfirmAction("Excluir turma permanentemente?", "A turma ${classroom.name}, todas as suas aulas, QR Codes, presenças, vínculos dos alunos e convites serão apagados. As contas dos usuários serão mantidas. Esta ação não pode ser desfeita.", vm, { dialog = null }) {
+            vm.deleteClassroom { dialog = null; onDeleted() }
+        }
         "removeParticipant" -> ConfirmAction("Remover participante?", "O aluno perderá acesso à turma. As presenças já registradas serão preservadas.", vm, { dialog = null }) { vm.removeParticipant(participantId) { dialog = null } }
-        "removeLesson" -> ConfirmAction("Remover aula?", "A aula será cancelada e deixará de contar na frequência. Aulas com presenças devem ser encerradas.", vm, { dialog = null }) { vm.cancelLesson { dialog = null } }
+        "deleteLesson" -> ConfirmAction("Excluir aula permanentemente?", "Esta aula, seus QR Codes e todos os seus registros de presença serão apagados. Ela deixará de contar na frequência dos alunos. Esta ação não pode ser desfeita.", vm, { dialog = null }) { vm.deleteLesson { dialog = null } }
         "closeLesson" -> ConfirmAction("Encerrar chamada?", "O QR Code será desativado. Alunos da lista sem registro receberão falta. Esta aula não poderá ser reaberta.", vm, { dialog = null }) { vm.closeLesson { dialog = null } }
     }
 }
 
 @Composable
-private fun TeacherLessonPanel(vm: TeacherClassroomViewModel, onEdit: () -> Unit, onRemove: () -> Unit, onClose: () -> Unit) {
+private fun TeacherLessonPanel(vm: TeacherClassroomViewModel, onEdit: () -> Unit, onDelete: () -> Unit, onClose: () -> Unit,
+    onAdjust: (AttendanceRecord, AttendanceStatus) -> Unit) {
     val state = vm.state
     val lesson = state.selectedLesson ?: return
     var duration by rememberSaveable(lesson.id) { mutableStateOf("300") }
@@ -137,16 +151,43 @@ private fun TeacherLessonPanel(vm: TeacherClassroomViewModel, onEdit: () -> Unit
         }
         if (state.qr != null || lesson.status == LessonStatus.OPEN) OutlinedButton(onClick = vm::invalidateQr, enabled = !vm.busy) { Text("Desativar QR Code") }
         Button(onClick = onClose, enabled = !vm.busy) { Text("Encerrar chamada") }
-        if (state.attendance.none { it.recordedAt != null }) TextButton(onClick = onRemove, enabled = !vm.busy) { Text("Remover aula") }
     }
+    TextButton(onClick = onDelete, enabled = !vm.busy,
+        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Excluir aula") }
     Text("Lista de chamada", style = MaterialTheme.typography.titleLarge)
-    Text("${state.attendance.count { it.recordedAt != null }} presença(s) / ${state.attendance.size} aluno(s)")
+    Text("${state.attendance.count { it.attendanceStatus == AttendanceStatus.PRESENT }} presença(s) / ${state.attendance.size} aluno(s)")
     OutlinedButton(onClick = vm::refresh, enabled = !vm.busy) { Text("Atualizar presenças") }
     if (state.attendance.isEmpty()) Text("A lista é formada ao abrir ou encerrar a chamada.")
     state.attendance.forEach { student -> AcademicCard {
         Text(student.name, style = MaterialTheme.typography.titleMedium)
-        Text(if (student.recordedAt != null) "Presente — ${AcademicDates.display(student.recordedAt)}" else if (lesson.status == LessonStatus.CLOSED) "Falta" else "Ainda não registrou")
+        Text(student.attendanceStatus.label())
+        student.recordedAt?.let { Text("Registro: ${AcademicDates.display(it)}") }
+        student.adjustmentReason?.let { reason ->
+            Text("Ajuste por ${student.adjustedByName ?: "professor"}: $reason")
+            student.adjustedAt?.let { Text("Ajustado em ${AcademicDates.display(it)}") }
+        }
+        if (lesson.status in listOf(LessonStatus.OPEN, LessonStatus.CLOSED)) {
+            val target = if (student.attendanceStatus == AttendanceStatus.PRESENT) AttendanceStatus.ABSENT else AttendanceStatus.PRESENT
+            OutlinedButton(onClick = { onAdjust(student, target) }, enabled = !vm.busy) {
+                Text(if (target == AttendanceStatus.PRESENT) "Marcar presença" else "Marcar falta")
+            }
+            if (student.attendanceStatus == AttendanceStatus.PENDING) TextButton(
+                onClick = { onAdjust(student, AttendanceStatus.ABSENT) }, enabled = !vm.busy) { Text("Marcar falta") }
+        }
     } }
+}
+
+@Composable
+private fun AttendanceAdjustmentDialog(id: String, studentId: String, status: AttendanceStatus,
+    vm: TeacherClassroomViewModel, onDismiss: () -> Unit) {
+    var reason by rememberSaveable(id) { mutableStateOf("") }
+    val student = vm.state.attendance.find { it.studentId == studentId }
+    FormDialog("Corrigir presença", vm, onDismiss, { vm.adjustAttendance(id, studentId, status, reason, onDismiss) }) {
+        Text("${student?.name ?: "Aluno"} será marcado como ${if (status == AttendanceStatus.PRESENT) "presente" else "ausente"}.")
+        OutlinedTextField(reason, { if (it.length <= 250) reason = it }, label = { Text("Justificativa obrigatória") },
+            supportingText = { Text("${reason.length}/250 caracteres") }, enabled = !vm.busy, minLines = 2, maxLines = 4)
+        Text("O motivo, o professor e a data do ajuste serão registrados. A frequência será recalculada para aulas encerradas.")
+    }
 }
 
 @Composable

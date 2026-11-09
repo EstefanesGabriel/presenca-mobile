@@ -22,6 +22,7 @@ class TeacherViewModel(
         private set
 
     private var requestId = UUID.randomUUID().toString()
+    private val deletedClassroomIds = mutableSetOf<String>()
 
     init { refresh() }
 
@@ -34,6 +35,16 @@ class TeacherViewModel(
         uiState = uiState.copy(selectedClassroom = null)
     }
 
+    fun onClassroomDeleted(classroomId: String) {
+        deletedClassroomIds.add(classroomId)
+        uiState = uiState.copy(
+            classrooms = uiState.classrooms.filterNot { it.id == classroomId },
+            selectedClassroom = null,
+            listError = null,
+            successMessage = "Turma excluída com todas as aulas e registros vinculados."
+        )
+    }
+
     fun refresh() {
         if (uiState.isLoading || uiState.isSaving) return
         if (profile.role != UserRole.TEACHER) {
@@ -44,7 +55,8 @@ class TeacherViewModel(
         viewModelScope.launch {
             try {
                 val classrooms = repository.listClassrooms(profile.id)
-                uiState = uiState.copy(classrooms = classrooms)
+                // Uma consulta iniciada antes da exclusão pode devolver a lista antiga.
+                uiState = uiState.copy(classrooms = classrooms.filterNot { it.id in deletedClassroomIds })
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {

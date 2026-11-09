@@ -61,7 +61,8 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 HomeScreen(
                     uiState = session,
                     onSignOutClick = sessionViewModel::onSignOutClick,
-                    onRetryProfile = sessionViewModel::loadProfile
+                    onRetryProfile = sessionViewModel::loadProfile,
+                    onProfileUpdated = sessionViewModel::onProfileUpdated
                 )
             }
         }

@@ -56,6 +56,8 @@ internal fun academicError(exception: Exception): String {
         "P2007" -> "Este convite não está mais disponível. Atualize a lista."
         "P2008" -> "Localização imprecisa ou configuração inválida. Aguarde o GPS melhorar; use um raio maior se necessário."
         "P2009" -> "Esta aula já começou ou tem presenças. Encerre a chamada para preservar o histórico."
+        "P2010" -> "O professor marcou falta nesta aula. Peça a ele para revisar a presença."
+        "P2011" -> "Este aluno não está mais na lista de chamada. Atualize as presenças."
         "22023" -> "Revise os campos informados e tente novamente."
         else -> "Não foi possível confirmar a operação. Confira a conexão e atualize a tela antes de tentar novamente."
     }

@@ -18,6 +18,12 @@ internal fun authErrorMessage(code: AuthErrorCode?): String = when (code) {
     AuthErrorCode.UserAlreadyExists, AuthErrorCode.EmailExists ->
         "Já existe uma conta com esse e-mail. Tente entrar."
     AuthErrorCode.WeakPassword -> "A senha não atende aos requisitos. Use uma senha mais forte."
+    AuthErrorCode.SamePassword -> "A nova senha deve ser diferente da senha atual."
+    AuthErrorCode.EmailAddressInvalid -> "Informe um e-mail válido."
+    AuthErrorCode.ReauthenticationNeeded, AuthErrorCode.ReauthenticationNotValid,
+    AuthErrorCode.ReauthNonceMissing -> "Saia e entre na conta novamente antes de alterar a senha."
+    AuthErrorCode.SessionExpired, AuthErrorCode.SessionNotFound,
+    AuthErrorCode.BadJwt, AuthErrorCode.NoAuthorization -> "Sua sessão expirou. Entre novamente na sua conta."
     AuthErrorCode.OverRequestRateLimit, AuthErrorCode.OverEmailSendRateLimit ->
         "Muitas tentativas em pouco tempo. Aguarde antes de tentar novamente."
     AuthErrorCode.EmailAddressNotAuthorized ->

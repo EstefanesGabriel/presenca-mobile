@@ -30,15 +30,19 @@ data class AttendanceQr(
 data class AttendanceRecord(
     @SerialName("student_id") val studentId: String,
     val name: String,
+    @SerialName("attendance_status") val attendanceStatus: AttendanceStatus,
     @SerialName("recorded_at") val recordedAt: String? = null,
-    @SerialName("distance_m") val distanceMeters: Double? = null
+    @SerialName("distance_m") val distanceMeters: Double? = null,
+    @SerialName("adjustment_reason") val adjustmentReason: String? = null,
+    @SerialName("adjusted_at") val adjustedAt: String? = null,
+    @SerialName("adjusted_by_name") val adjustedByName: String? = null
 )
 
 @Serializable
 data class AttendanceReceipt(
     @SerialName("lesson_id") val lessonId: String,
     @SerialName("already_recorded") val alreadyRecorded: Boolean,
-    @SerialName("distance_m") val distanceMeters: Double
+    @SerialName("distance_m") val distanceMeters: Double? = null
 )
 
 @Serializable
@@ -51,7 +55,10 @@ data class AttendanceHistory(
     @SerialName("starts_at") val startsAt: String,
     @SerialName("lesson_status") val lessonStatus: LessonStatus,
     @SerialName("attendance_status") val attendanceStatus: AttendanceStatus,
-    @SerialName("recorded_at") val recordedAt: String? = null
+    @SerialName("recorded_at") val recordedAt: String? = null,
+    @SerialName("adjustment_reason") val adjustmentReason: String? = null,
+    @SerialName("adjusted_at") val adjustedAt: String? = null,
+    @SerialName("adjusted_by_name") val adjustedByName: String? = null
 )
 
 data class AttendanceSummary(val present: Int, val absent: Int) {

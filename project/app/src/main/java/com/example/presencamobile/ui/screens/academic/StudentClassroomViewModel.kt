@@ -19,6 +19,15 @@ class StudentClassroomViewModel(
     var receipt by mutableStateOf<AttendanceReceipt?>(null); private set
     val summary get() = AttendanceSummary.from(history)
 
+    fun leaveClassroom(onLeft: () -> Unit) {
+        if (profile.role != UserRole.STUDENT || busy) return
+        perform {
+            repository.leaveClassroom(classroom.id)
+            history = emptyList(); receipt = null; loaded = false
+            onLeft()
+        }
+    }
+
     fun refresh() {
         if (profile.role != UserRole.STUDENT) return
         perform { reloadHistory() }

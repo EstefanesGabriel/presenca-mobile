@@ -44,7 +44,9 @@ fun StudentRoute(profile: UserProfile, session: SessionUiState, onSignOut: () ->
     val selected = state.classrooms.find { it.id == selectedId }
     BackHandler(enabled = state.isJoining) { student.cancelJoin() }
     if (selected != null) {
-        StudentClassroomRoute(profile, selected) { selectedId = null; student.refresh() }
+        StudentClassroomRoute(profile, selected,
+            onLeft = { student.onClassroomLeft(selected.id); selectedId = null },
+            onBack = { selectedId = null; student.refresh() })
     } else if (state.isJoining) {
         JoinClassroomScreen(state, student::onCodeChange, student::onPasswordChange, student::joinClassroom, student::cancelJoin)
     } else {

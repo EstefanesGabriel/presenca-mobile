@@ -10,6 +10,7 @@ import com.example.presencamobile.data.model.UserRole
 import com.example.presencamobile.data.repository.MembershipRepository
 import io.github.jan.supabase.postgrest.exception.PostgrestRestException
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 class StudentViewModel(
@@ -18,6 +19,8 @@ class StudentViewModel(
 ) : ViewModel() {
     var uiState by mutableStateOf(StudentUiState())
         private set
+    private var loadJob: Job? = null
+    private var listVersion = 0
 
     init { refresh() }
 
@@ -28,17 +31,26 @@ class StudentViewModel(
             return
         }
         uiState = uiState.copy(isLoading = true, listError = null)
-        viewModelScope.launch {
+        val version = ++listVersion
+        loadJob = viewModelScope.launch {
             try {
-                uiState = uiState.copy(classrooms = repository.listMyClassrooms())
+                val classrooms = repository.listMyClassrooms()
+                if (version == listVersion) uiState = uiState.copy(classrooms = classrooms)
             } catch (exception: CancellationException) {
                 throw exception
             } catch (exception: Exception) {
-                uiState = uiState.copy(listError = "Não foi possível carregar suas turmas. Confira a conexão e tente novamente.")
+                if (version == listVersion) uiState = uiState.copy(listError = "Não foi possível carregar suas turmas. Confira a conexão e tente novamente.")
             } finally {
-                uiState = uiState.copy(isLoading = false)
+                if (version == listVersion) uiState = uiState.copy(isLoading = false)
             }
         }
+    }
+
+    fun onClassroomLeft(classroomId: String) {
+        // Impede uma consulta antiga de recolocar na tela a turma já deixada.
+        listVersion++; loadJob?.cancel(); loadJob = null
+        uiState = uiState.copy(classrooms = uiState.classrooms.filterNot { it.id == classroomId },
+            isLoading = false, listError = null, successMessage = "Você saiu da turma. Seu histórico nela foi apagado.")
     }
 
     fun openJoin() {

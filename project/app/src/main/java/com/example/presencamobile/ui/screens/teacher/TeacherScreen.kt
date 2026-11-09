@@ -42,7 +42,9 @@ fun TeacherRoute(profile: UserProfile, session: SessionUiState, onSignOut: () ->
 
     val selectedClassroom = state.selectedClassroom
     if (selectedClassroom != null) {
-        TeacherClassroomRoute(profile, selectedClassroom) { teacher.closeParticipants(); teacher.refresh() }
+        TeacherClassroomRoute(profile, selectedClassroom,
+            onDeleted = { teacher.onClassroomDeleted(selectedClassroom.id) }
+        ) { teacher.closeParticipants(); teacher.refresh() }
     } else if (state.isCreating) {
         CreateClassroomScreen(
             state = state,

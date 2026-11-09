@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.presencamobile.data.repository.AuthRepository
 import com.example.presencamobile.data.repository.ProfileRepository
+import com.example.presencamobile.data.model.UserProfile
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -93,6 +94,14 @@ class SessionViewModel(
                 if (profileVersion == version) uiState = uiState.copy(isProfileLoading = false)
             }
         }
+    }
+
+    fun onProfileUpdated(profile: UserProfile) {
+        if (!uiState.isAuthenticated || uiState.userId != profile.id) return
+        profileVersion++
+        profileJob?.cancel()
+        profileJob = null
+        uiState = uiState.copy(profile = profile, isProfileLoading = false, profileError = null)
     }
 
     fun onSignOutClick() {

@@ -52,6 +52,21 @@ class TeacherClassroomViewModel(
         state = state.copy(selectedLesson = null, attendance = emptyList(), qr = null)
         qrRequestId = null
     }
+    fun adjustAttendance(id: String, studentId: String, status: AttendanceStatus, reason: String, onSaved: () -> Unit) {
+        if (!allowed() || busy) return
+        val lesson = state.selectedLesson ?: return
+        if (lesson.status !in listOf(LessonStatus.OPEN, LessonStatus.CLOSED) ||
+            state.attendance.none { it.studentId == studentId }) return
+        val justification = reason.trim()
+        if (status == AttendanceStatus.PENDING || justification.length !in 1..250) {
+            showError("Informe uma breve justificativa de 1 a 250 caracteres."); return
+        }
+        perform {
+            // O servidor devolve a chamada atualizada junto da confirmação do ajuste.
+            state = state.copy(attendance = repository.adjustAttendance(id, lesson.id, studentId, status, justification))
+            notice = "Presença corrigida. A justificativa foi registrada."; onSaved()
+        }
+    }
     fun saveClassroom(name: String, subject: String, semester: String, password: String, onSaved: () -> Unit) {
         if (!allowed() || busy) return
         if (name.trim().length !in 1..100 || subject.trim().length !in 1..100 || semester.trim().length !in 1..30 ||
@@ -70,6 +85,15 @@ class TeacherClassroomViewModel(
             reload(); notice = "Turma encerrada. O histórico foi preservado."; onSaved()
         }
     }
+    fun deleteClassroom(onDeleted: () -> Unit) {
+        if (!allowed() || busy) return
+        perform {
+            repository.deleteClassroom(state.classroom.id)
+            state = state.copy(lessons = emptyList(), participants = emptyList(), selectedLesson = null, attendance = emptyList(), qr = null)
+            qrRequestId = null
+            onDeleted()
+        }
+    }
     fun removeParticipant(studentId: String, onSaved: () -> Unit) {
         if (!allowed()) return
         perform { repository.removeParticipant(state.classroom.id, studentId); reload(); notice = "Participante removido. O histórico foi preservado."; onSaved() }
@@ -82,10 +106,16 @@ class TeacherClassroomViewModel(
         }
         perform { repository.saveLesson(id, state.classroom.id, title.trim(), utc); reload(); notice = "Aula salva."; onSaved() }
     }
-    fun cancelLesson(onSaved: () -> Unit) {
-        if (!allowed()) return
+    fun deleteLesson(onDeleted: () -> Unit) {
+        if (!allowed() || busy) return
         val lesson = state.selectedLesson ?: return
-        perform { repository.cancelLesson(lesson.id); state = state.copy(selectedLesson = null, qr = null); reload(); notice = "Aula removida."; onSaved() }
+        perform {
+            repository.deleteLesson(state.classroom.id, lesson.id)
+            state = state.copy(lessons = state.lessons.filterNot { it.id == lesson.id }, selectedLesson = null, attendance = emptyList(), qr = null)
+            qrRequestId = null
+            notice = "Aula excluída. Seus registros de presença também foram apagados."
+            onDeleted()
+        }
     }
     fun closeLesson(onSaved: () -> Unit) {
         if (!allowed()) return

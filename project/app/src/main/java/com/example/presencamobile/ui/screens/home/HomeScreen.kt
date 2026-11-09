@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,6 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.presencamobile.ui.auth.SessionUiState
 import com.example.presencamobile.data.model.UserRole
+import com.example.presencamobile.data.model.UserProfile
+import com.example.presencamobile.ui.screens.account.AccountRoute
 import com.example.presencamobile.ui.screens.teacher.TeacherRoute
 import com.example.presencamobile.ui.screens.student.StudentRoute
 import com.example.presencamobile.ui.screens.academic.InboxRoute
@@ -29,17 +32,25 @@ fun HomeScreen(
     uiState: SessionUiState,
     onSignOutClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onRetryProfile: () -> Unit = {}
+    onRetryProfile: () -> Unit = {},
+    onProfileUpdated: (UserProfile) -> Unit
 ) {
     val profile = uiState.profile
     if (profile != null) {
-        var showInbox by rememberSaveable(profile.id) { mutableStateOf(false) }
-        if (showInbox) {
-            InboxRoute(profile) { showInbox = false }
+        var section by rememberSaveable(profile.id) { mutableStateOf("classes") }
+        if (section == "account") {
+            AccountRoute(profile, uiState.email, onProfileUpdated) { section = "classes" }
+        } else if (section == "inbox") {
+            InboxRoute(profile) { section = "classes" }
         } else {
             Column(modifier.fillMaxSize()) {
-                TextButton(onClick = { showInbox = true }, enabled = !uiState.isSigningOut, modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Text("Notificações e convites")
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    TextButton(onClick = { section = "inbox" }, enabled = !uiState.isSigningOut, modifier = Modifier.weight(1f)) {
+                        Text("Notificações e convites")
+                    }
+                    TextButton(onClick = { section = "account" }, enabled = !uiState.isSigningOut, modifier = Modifier.weight(1f)) {
+                        Text("Minha conta")
+                    }
                 }
                 Box(Modifier.weight(1f)) {
                     if (profile.role == UserRole.TEACHER) TeacherRoute(profile, uiState, onSignOutClick)
